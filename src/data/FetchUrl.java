@@ -2,11 +2,11 @@ package data;
 
 public class FetchUrl {
     public String url;
-    public int statusCode;
+    public int status;
 
-    public FetchUrl(String url, int statusCode){
+    public FetchUrl(String url, int status){
         this.url = url;
-        this.statusCode = statusCode;
+        this.status = status;
 
     }
 }

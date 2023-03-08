@@ -6,7 +6,6 @@ import edu.uci.ics.crawler4j.crawler.CrawlController;
 import edu.uci.ics.crawler4j.fetcher.PageFetcher;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtConfig;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,8 +23,7 @@ public class Controller {
 
     public static void main(String[] args) throws Exception {
 
-        List<Object> allCrawlData = performCrawling();
-        logger.info("Crawling finished");
+        List<Object> allCrawlData = crawl();
         CrawlStat crawlStat = fetchStat(allCrawlData);
         writeCsv(crawlStat);
         writeReport(crawlStat);
@@ -60,13 +58,12 @@ public class Controller {
             uniqueUrlOutside += data.getUniqueOutside();
         }
 
-        CrawlStat crawlStat = new CrawlStat(fetchedUrls, outgoingUrls, downloadedUrls, totalFetch, totalSuccessFetch, totalFailedFetch, totalUrl, uniqueUrl,
+        return new CrawlStat(fetchedUrls, outgoingUrls, downloadedUrls, totalFetch, totalSuccessFetch, totalFailedFetch, totalUrl, uniqueUrl,
                 uniqueUrlWithin, uniqueUrlOutside);
-        return crawlStat;
 
     }
 
-    private static List<Object> performCrawling() throws Exception {
+    private static List<Object> crawl() throws Exception {
         String crawlStorageFolder = "data";
         int numberOfCrawlers = 7;
         CrawlConfig config = new CrawlConfig();
@@ -74,23 +71,11 @@ public class Controller {
         config.setMaxDepthOfCrawling(16);
         config.setMaxPagesToFetch(20000);
         config.setPolitenessDelay(200);
-        /*
-         * Instantiate the controller for this crawl.
-         */
         PageFetcher pageFetcher = new PageFetcher(config);
         RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
         RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
         CrawlController controller = new CrawlController(config, pageFetcher, robotstxtServer);
-        /*
-         * For each crawl, you need to add some seed urls. These are the first
-         * URLs that are fetched and then the crawler starts following links
-         * which are found in these pages
-         */
         controller.addSeed("https://www.foxnews.com");
-        /*
-         * Start the crawl. This is a blocking operation, meaning that your code
-         * will reach the line after this only when crawling is finished.
-         */
         controller.start(MyCrawler.class, numberOfCrawlers);
         return controller.getCrawlersLocalData();
     }
@@ -98,145 +83,130 @@ public class Controller {
     private static void writeCsv(CrawlStat crawlStat) throws Exception {
         logger.info("Generating CSV files");
 
-        File newFile = new File("fetch_" + "FoxNews" + ".csv");
-        newFile.delete();
-        newFile.createNewFile();
-        BufferedWriter bw = new BufferedWriter(new FileWriter(newFile, true));
-        bw.append("URL,Status\n");
-
+        File file = new File("fetch_FoxNews.cvs");
+        FileWriter writer = new FileWriter(file, true);
+        writer.append("URL, Status\n");
         for (FetchUrl fetchUrl : crawlStat.getFetchedUrls()) {
-            bw.append(fetchUrl.url + "," + fetchUrl.statusCode + "\n");
+            writer.append(fetchUrl.url).append(",").append(String.valueOf(fetchUrl.status)).append("\n");
         }
-        bw.close();
+        writer.close();
 
-        newFile = new File("visit_" + "FoxNews" + ".csv");
-        newFile.delete();
-        newFile.createNewFile();
-        bw = new BufferedWriter(new FileWriter(newFile, true));
-        bw.write("URL, Size(Bytes), # of Outlinks, Content-Type\n");
+        file = new File("visit_FoxNews.csv");
+        writer = new FileWriter(file, true);
+        writer.write("URL, Size(Bytes), # of Outlinks, Content-Type\n");
 
         for (DownloadFileUrl downloadFileUrl : crawlStat.getDownloadedUrls()) {
-            bw.append(downloadFileUrl.url + "," + downloadFileUrl.size + "," + downloadFileUrl.outlinkCount + "," + downloadFileUrl.contentType + "\n");
+            writer.append(downloadFileUrl.url).append(",").append(String.valueOf(downloadFileUrl.size)).append(",")
+                    .append(String.valueOf(downloadFileUrl.outlinkCount)).append(",").append(downloadFileUrl.contentType).append("\n");
         }
-        bw.close();
+        writer.close();
 
-        newFile = new File("urls_" + "FoxNews" + ".csv");
-        newFile.delete();
-        newFile.createNewFile();
-        bw = new BufferedWriter(new FileWriter(newFile, true));
-        bw.write("URL,Residence Indicator\n");
-
+        file = new File("urls_FoxNews.csv");
+        writer = new FileWriter(file, true);
+        writer.write("URL, URL Type\n");
         for (OutgoingUrl outgoingUrl : crawlStat.getOutgoingUrls()) {
             String residenceIndicator = outgoingUrl.residence ? "OK" : "N_OK";
-            bw.append(outgoingUrl.url + "," + residenceIndicator + "\n");
+            writer.append(outgoingUrl.url).append(",").append(residenceIndicator).append("\n");
         }
-        bw.close();
+        writer.close();
     }
 
     private static void writeReport(CrawlStat crawlStat) throws Exception {
         logger.info("Generating Reports");
 
-        HashMap<Integer, Integer> statusCodes = new HashMap<Integer, Integer>();
+        HashMap<Integer, Integer> statusMap = new HashMap<Integer, Integer>();
+        Map<Integer, Integer> fileSizeMap = new HashMap<Integer, Integer>();
+
+                Map.of(1, 0 , 2, 0, 3, 0,4, 0, 5, 0);
 
         for(FetchUrl fetchUrl : crawlStat.getFetchedUrls())
         {
-            if (statusCodes.containsKey(fetchUrl.statusCode))
-            {
-                statusCodes.put(fetchUrl.statusCode, statusCodes.get(fetchUrl.statusCode) + 1);
-            }
-            else
-            {
-                statusCodes.put(fetchUrl.statusCode, 1);
-            }
+            statusMap.merge(fetchUrl.status, 1, Integer::sum);
         }
 
         HashMap<String, Integer> contentTypes = new HashMap<String, Integer>();
-        int oneK = 0, tenK = 0, hundredK = 0, oneM = 0, other = 0;
-
         for(DownloadFileUrl downloadFileUrl : crawlStat.getDownloadedUrls())
         {
-            if (contentTypes.containsKey(downloadFileUrl.contentType))
-            {
-                contentTypes.put(downloadFileUrl.contentType, contentTypes.get(downloadFileUrl.contentType) + 1);
-            }
-            else
-            {
-                contentTypes.put(downloadFileUrl.contentType, 1);
-            }
+
+            contentTypes.merge(downloadFileUrl.contentType, 1, Integer::sum);
 
             if (downloadFileUrl.size < 1024)
             {
-                oneK ++;
+                fileSizeMap.merge(1, 1, Integer::sum);
             }
             else if (downloadFileUrl.size < 10240)
             {
-                tenK ++;
+                fileSizeMap.merge(2, 1, Integer::sum);
             }
             else if (downloadFileUrl.size < 102400)
             {
-                hundredK ++;
+                fileSizeMap.merge(3, 1, Integer::sum);
             }
-            else if (downloadFileUrl.size < 1024 * 1024)
+            else if (downloadFileUrl.size < 1048576)
             {
-                oneM ++;
+                fileSizeMap.merge(4, 1, Integer::sum);
             }
             else
             {
-                other ++;
+                fileSizeMap.merge(5, 1, Integer::sum);
             }
 
         }
 
-        File newFile = new File("CrawlReport_" + "FoxNews" + ".txt");
-        newFile.delete();
-        newFile.createNewFile();
-        BufferedWriter bw = new BufferedWriter(new FileWriter(newFile, true));
-        bw.write("Name: Name\nUSC ID: ID\n\n");
-        bw.write("News site crawled: FoxNews.com" + "\nNumber of threads: 7" + "\n\n");
+        File csvFile = new File("CrawlReport_FoxNews.txt");
+        FileWriter writer = new FileWriter(csvFile, true);
+        writer.write("Name: Sogand  Ghods\n");
+        writer.write("USC ID: 2525215149\n\n");
 
-        bw.write("Fetch Statistics: \n================\n");
-        bw.write("# fetches attempted: " + crawlStat.getTotalFetch() + "\n# fetches succeeded: " + crawlStat.getTotalSuccessFetch() +
-                "\n# fetches failed or aborted: " + crawlStat.getTotalFailedFetch() + "\n\n");
+        writer.write("News site crawled: FoxNews.com" + "\nNumber of threads: 7");
+        writer.write("Number of threads: 7\n\n");
 
-        bw.write("Outgoing URLs: \n================\n");
-        bw.write("Total URLs extracted: " + crawlStat.getTotalUrl() + "\n# unique URLs extracted " + crawlStat.getUniqueUrl() +
-                "\n# unique URLs within News Site " + crawlStat.getUniqueUrlWithin() + "\n# unique URLs outside News Site " + crawlStat.getUniqueOutside()
-                + "\n\n");
+        writer.write("Fetch Statistics: \n");
+        writer.write("================\n");
 
-        bw.write("Status Codes: \n================\n");
-        statusCodes.keySet().forEach(key -> {
+        writer.write("# fetches attempted: " + crawlStat.getTotalFetch() + "\n" );
+        writer.write("# fetches succeeded: " + crawlStat.getTotalSuccessFetch() + "\n");
+        writer.write( "# fetches failed or aborted: " + crawlStat.getTotalFailedFetch()+ "\n\n");
+
+
+        writer.write("Outgoing URLs: \n");
+        writer.write("================\n");
+
+        writer.write("Total URLs extracted: " + crawlStat.getTotalUrl() + "\n");
+        writer.write("# unique URLs extracted " + crawlStat.getUniqueUrl() +"\n");
+        writer.write("# unique URLs extracted within News Site " + crawlStat.getUniqueUrlWithin() +"\n");
+        writer.write("# unique URLs extracted outside News Site " + crawlStat.getUniqueOutside() +"\n\n");
+
+        writer.write("Status Codes: \n");
+        writer.write("================\n");
+
+        statusMap.keySet().forEach(key -> {
             try {
-                bw.write(key + ": " + statusCodes.get(key) + "\n");
+                writer.write(key + ": " + statusMap.get(key) + "\n");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
 
-        bw.write("\n\n");
+        writer.write("\n\nFile Sizes:\n");
+        writer.write("================\n");
 
-        bw.write("File Sizes:\n================\n");
-        bw.write("< 1KB: "+ oneK + "\n");
-        bw.write("1KB ~ <10KB: "+ tenK + "\n");
-        bw.write("10KB ~ <100KB: "+ hundredK + "\n");
-        bw.write("100KB ~ <1MB: "+ oneM + "\n");
-        bw.write(">= 1MB: "+ other + "\n\n");
+        writer.write("< 1KB: "+ fileSizeMap.get(0) + "\n");
+        writer.write("1KB ~ <10KB: "+ fileSizeMap.get(1) + "\n");
+        writer.write("10KB ~ <100KB: "+ fileSizeMap.get(2) + "\n");
+        writer.write("100KB ~ <1MB: "+ fileSizeMap.get(3) + "\n");
+        writer.write(">= 1MB: "+ fileSizeMap.get(4) + "\n\n");
 
-        bw.write("Content Types:\n================\n");
+        writer.write("Content Types:\n");
+        writer.write("================\n");
 
         contentTypes.keySet().forEach(key -> {
             try {
-                bw.write(key + ": " + contentTypes.get(key) + "\n");
+                writer.write(key + ": " + contentTypes.get(key) + "\n");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-
-        bw.close();
-
-
-        for(int key: statusCodes.keySet())
-        {
-            System.out.println(key + " " + statusCodes.get(key));
-        }
+        writer.close();
     }
 }
