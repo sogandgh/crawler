@@ -139,14 +139,9 @@ public class CrawlStat {
     public void addFetchedUrls(String url, int statusCode)
     {
         this.fetchedUrls.add(new FetchUrl(url, statusCode));
-        //this.statusCodeMap.merge(statusCode, 1, Integer::sum);
         this.totalFetch ++;
 
-     /*   if(200 <= statusCode && statusCode < 300){
-                this.totalSuccessFetch ++;
-        }else{
-            this.totalFailedFetch ++;
-        }*/
+
     }
 
     public void addOutgoingUrl(String url, boolean residenceIndicator)
@@ -157,19 +152,7 @@ public class CrawlStat {
     public void addDownloadUrls(String url, int size, int outlinkCount, String contentType)
     {
         this.downloadedUrls.add(new DownloadFileUrl(url, size, outlinkCount, contentType));
-/*
-        if(size <= 1000){
-            this.fileSizeMap.merge("<1KB", 1, Integer::sum);}
-        else if(size <= 10000){
-            this.fileSizeMap.merge("1-10KB", 1, Integer::sum);}
-        else if(size <= 100000){
-            this.fileSizeMap.merge("10-100KB", 1, Integer::sum);}
-        else if(size < 1000000){
-            this.fileSizeMap.merge("100-1MB", 1, Integer::sum);}
-        else{
-            this.fileSizeMap.merge("1MB", 1, Integer::sum);}
 
-        this.contentTypeMap.merge(contentType, 1, Integer::sum);*/
     }
 
 
